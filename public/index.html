@@ -2,239 +2,288 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Links Directory</title>
-    
-    <!-- Google Fonts for a nicer look -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Live Chat Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-
-    <!-- CSS is now embedded directly in the HTML file -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
     <style>
         :root {
-            --primary-color: #075E54;
-            --secondary-color: #25D366;
-            --background-color: #f0f2f5;
-            --card-bg-color: #ffffff;
-            --text-color: #333;
-            --light-text-color: #666;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --bg-color: #121212; --surface-color: #1e1e1e; --my-message-color: #3B82F6; --other-message-color: #374151;
+            --text-color: #e0e0e0; --text-secondary-color: #a0a0a0; --chat-window-bg: #242424;
+            --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); --error-color: #ef4444; --leave-color: #f59e0b;
         }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100vh; padding: 1rem; overflow: hidden; }
 
-        body {
-            font-family: 'Poppins', sans-serif;
-            margin: 0;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            line-height: 1.6;
-        }
+        @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* --- Welcome Screen --- */
+        #welcome-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        .welcome-box { background-color: var(--surface-color); padding: 2rem; border-radius: 16px; text-align: center; box-shadow: var(--card-shadow); width: 90%; max-width: 400px; animation: slideInUp 0.5s ease-out; }
+        .welcome-box h2 { margin-bottom: 0.5rem; }
+        .welcome-box p { color: var(--text-secondary-color); margin-bottom: 1.5rem; }
+        .avatar-upload-container { margin-bottom: 1rem; }
+        #avatar-preview { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--chat-window-bg); cursor: pointer; }
+        #avatar-input { display: none; }
+        #join-form input[type="text"] { width: 100%; padding: 0.75rem 1rem; font-size: 1rem; border-radius: 20px; border: 2px solid var(--chat-window-bg); background-color: var(--chat-window-bg); color: var(--text-color); margin-bottom: 1rem; }
+        #join-form input[type="text"]:focus { outline: none; border-color: var(--my-message-color); }
+        #join-form button { width: 100%; padding: 0.75rem; background-color: var(--my-message-color); color: white; border: none; border-radius: 20px; font-size: 1rem; font-weight: 500; cursor: pointer; transition: background-color 0.2s; }
+        #join-form button:disabled { background-color: #555; cursor: not-allowed; }
+        #join-form button:hover:not(:disabled) { background-color: #2563EB; }
+        #join-error-msg { color: var(--error-color); height: 20px; margin-top: 0.5rem; }
 
-        header {
-            background-color: var(--primary-color);
-            color: white;
-            text-align: center;
-            padding: 2rem 1rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
+        /* --- Chat Container --- */
+        .chat-container { display: none; width: 100%; max-width: 700px; height: 90vh; max-height: 800px; background-color: var(--surface-color); border-radius: 16px; box-shadow: var(--card-shadow); flex-direction: column; overflow: hidden; }
+        header { padding: 0.75rem 1rem; text-align: center; border-bottom: 1px solid #333; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
+        .header-content { text-align: center; flex-grow: 1; }
+        header h1 { font-size: 1.2rem; }
+        #user-list { font-size: 0.8rem; margin-top: 4px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #leave-chat-btn { background: none; border: 2px solid var(--leave-color); color: var(--leave-color); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        #leave-chat-btn:hover { background: var(--leave-color); color: white; }
 
-        header h1 {
-            margin: 0;
-            font-weight: 600;
-        }
+        /* --- Chat Window & Messages --- */
+        #chat-window { flex-grow: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; }
+        .message-container { display: flex; align-items: flex-end; max-width: 80%; animation: slideInUp 0.4s ease-out; gap: 8px; }
+        .message-container.mine { align-self: flex-end; flex-direction: row-reverse; }
+        .message-container.other { align-self: flex-start; }
+        .message-container.system { align-self: center; max-width: 100%; color: var(--text-secondary-color); font-style: italic; font-size: 0.9em; text-align: center; padding: 0.5rem 0; }
+        .avatar-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .message-wrapper { display: flex; flex-direction: column; }
+        .message-wrapper.mine { align-items: flex-end; }
+        .message-wrapper.other { align-items: flex-start; }
+        .message { padding: 0.75rem 1rem; border-radius: 18px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; position: relative; }
+        .message-container.mine .message { background-color: var(--my-message-color); color: #fff; border-bottom-right-radius: 4px; }
+        .message-container.other .message { background-color: var(--other-message-color); color: var(--text-color); border-bottom-left-radius: 4px; }
+        .message-meta { font-size: 0.8em; color: var(--text-secondary-color); margin-top: 4px; padding: 0 0.5rem; }
+        .reply-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.3); border: none; color: white; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; opacity: 0; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; }
+        .message-container:hover .reply-btn { opacity: 1; }
+        .message-container.mine .message .reply-btn { right: calc(100% + 5px); }
+        .message-container.other .message .reply-btn { left: calc(100% + 5px); }
+        .reply-context { background: rgba(0,0,0,0.2); padding: 5px 10px; margin-bottom: 5px; border-left: 3px solid var(--text-secondary-color); border-radius: 4px; font-size: 0.9em; }
+        .reply-context strong { color: var(--my-message-color); }
+        .reply-context blockquote { margin: 0; padding: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .media-container img, .media-container video { max-width: 100%; border-radius: 10px; margin-top: 5px; }
+        .media-container audio { width: 100%; margin-top: 5px; }
+        .file-link { margin-top: 5px; } .file-link a { color: #fff; text-decoration: underline; }
 
-        main {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-
-        #links-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .loading-message {
-            font-size: 1.2rem;
-            color: var(--light-text-color);
-            text-align: center;
-            grid-column: 1 / -1; /* Make it span all columns */
-        }
-
-        .link-card {
-            background-color: var(--card-bg-color);
-            border-radius: 12px;
-            box-shadow: var(--card-shadow);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .link-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-        }
-
-        .card-header {
-            display: flex;
-            align-items: center;
-            padding: 1rem;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .profile-pic {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-right: 1rem;
-            border: 2px solid var(--primary-color);
-            flex-shrink: 0;
-        }
-
-        .card-title h2 {
-            margin: 0;
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-
-        .card-title .type-badge {
-            font-size: 0.75rem;
-            background-color: var(--background-color);
-            padding: 0.2rem 0.5rem;
-            border-radius: 10px;
-            color: var(--light-text-color);
-            font-weight: 400;
-        }
-
-        .card-body {
-            padding: 1rem;
-            flex-grow: 1; /* Makes the body take up available space */
-        }
-
-        .card-body p {
-            font-size: 0.9rem;
-            color: var(--light-text-color);
-            line-height: 1.5;
-            margin: 0;
-        }
-
-        .card-footer {
-            padding: 1rem;
-            margin-top: auto; /* Pushes the footer to the bottom */
-            background-color: #fafafa;
-        }
-
-        .join-button {
-            display: block;
-            width: 100%;
-            padding: 0.8rem;
-            background-color: var(--secondary-color);
-            color: white;
-            text-align: center;
-            text-decoration: none;
-            font-weight: 600;
-            border-radius: 8px;
-            transition: background-color 0.3s ease;
-            border: none;
-            cursor: pointer;
-        }
-
-        .join-button:hover {
-            background-color: #128C7E;
-        }
-
-        footer {
-            text-align: center;
-            padding: 1.5rem;
-            margin-top: 2rem;
-            color: var(--light-text-color);
-            font-size: 0.9rem;
-        }
+        /* --- Reply Preview & Form --- */
+        #reply-preview { display: none; padding: 5px 15px; background: var(--chat-window-bg); border-top: 1px solid #333; flex-shrink: 0; }
+        #reply-preview-content { background: var(--surface-color); border-left: 3px solid var(--my-message-color); padding: 5px 10px; border-radius: 4px; font-size: 0.9em; }
+        #cancel-reply-btn { background: none; border: none; color: var(--text-secondary-color); cursor: pointer; float: right; }
+        #typing-indicator-container { padding: 0 1.5rem 1rem 1.5rem; height: 24px; font-style: italic; color: var(--text-secondary-color); flex-shrink: 0; }
+        #chat-form { display: flex; padding: 1rem; gap: 0.5rem; border-top: 1px solid #333; flex-shrink: 0; align-items: center; }
+        #user-input { flex-grow: 1; padding: 0.75rem 1rem; font-size: 1rem; border-radius: 20px; border: 2px solid var(--chat-window-bg); background-color: var(--chat-window-bg); color: var(--text-color); }
+        #user-input:focus { outline: none; border-color: var(--my-message-color); }
+        .icon-btn { background: var(--my-message-color); border: none; border-radius: 50%; width: 44px; height: 44px; min-width: 44px; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.2s, background-color 0.2s; }
+        .icon-btn:hover { background-color: #2563EB; }
+        .icon-btn:active { transform: scale(0.9); }
+        .icon-btn i, .icon-btn svg { font-size: 1.1rem; color: #fff; }
+        .icon-btn svg { width: 22px; height: 22px; fill: #fff; }
     </style>
 </head>
 <body>
+    <div id="welcome-screen">
+        <div class="welcome-box">
+            <h2>Welcome to Live Chat Pro</h2>
+            <p>Choose a username and a profile picture to join.</p>
+            <form id="join-form">
+                <div class="avatar-upload-container">
+                    <label for="avatar-input">
+                        <img id="avatar-preview" src="https://api.dicebear.com/8.x/initials/svg?seed=" alt="Avatar Preview">
+                    </label>
+                    <input type="file" id="avatar-input" accept="image/*">
+                </div>
+                <input type="text" id="username-input" placeholder="Enter your username..." autocomplete="off" required maxlength="15">
+                <button type="submit" id="join-btn" disabled>Join Chat</button>
+            </form>
+            <div id="join-error-msg"></div>
+        </div>
+    </div>
 
-    <header>
-        <h1>WhatsApp Channel & Group Directory</h1>
-        <p>Discover and join the best communities on WhatsApp.</p>
-    </header>
+    <div class="chat-container" id="chat-container">
+        <header>
+            <div class="header-content">
+                <h1>Live Chat Pro</h1>
+                <div id="user-list" title="Users currently online">Online: 0</div>
+            </div>
+            <button id="leave-chat-btn" title="Leave Chat"><i class="fa-solid fa-right-from-bracket"></i></button>
+        </header>
+        <div id="chat-window"></div>
+        <div id="reply-preview">
+            <div id="reply-preview-content">
+                <button id="cancel-reply-btn"><i class="fa-solid fa-xmark"></i></button>
+                <p>Replying to <strong id="reply-user"></strong></p>
+                <blockquote id="reply-text"></blockquote>
+            </div>
+        </div>
+        <div id="typing-indicator-container"></div>
+        <form id="chat-form">
+            <input type="file" id="file-input" style="display: none;" accept="image/*,video/*,audio/*,.pdf,.zip">
+            <label for="file-input" class="icon-btn" style="background-color: #4b5563;"><i class="fa-solid fa-paperclip"></i></label>
+            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" required>
+            <button type="submit" id="send-button" class="icon-btn" aria-label="Send Message">
+                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+            </button>
+        </form>
+    </div>
 
-    <main id="links-container">
-        <!-- Links will be dynamically loaded here by JavaScript -->
-        <p class="loading-message">Loading links...</p>
-    </main>
-
-    <footer>
-        <p>© 2024 Your Website Name. All rights reserved.</p>
-    </footer>
-
-    <!-- JavaScript is now embedded directly in the HTML file -->
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const linksContainer = document.getElementById('links-container');
+            const socket = io();
+            const DOMElements = {
+                welcomeScreen: document.getElementById('welcome-screen'), chatContainer: document.getElementById('chat-container'),
+                joinForm: document.getElementById('join-form'), usernameInput: document.getElementById('username-input'),
+                joinBtn: document.getElementById('join-btn'), joinErrorMsg: document.getElementById('join-error-msg'),
+                avatarInput: document.getElementById('avatar-input'), avatarPreview: document.getElementById('avatar-preview'),
+                chatForm: document.getElementById('chat-form'), userInput: document.getElementById('user-input'),
+                chatWindow: document.getElementById('chat-window'), userList: document.getElementById('user-list'),
+                typingIndicator: document.getElementById('typing-indicator-container'), fileInput: document.getElementById('file-input'),
+                replyPreview: document.getElementById('reply-preview'), cancelReplyBtn: document.getElementById('cancel-reply-btn'),
+                sendButton: document.getElementById('send-button'), leaveChatBtn: document.getElementById('leave-chat-btn'),
+            };
+            
+            let localUser = null, replyToMessage = null, selectedAvatarFile = null;
+            let typingTimeout, currentlyTyping = {};
 
-            // This function fetches the data from our back-end API.
-            async function fetchAndDisplayLinks() {
-                try {
-                    // The '/api/links' path works because this HTML file and the API
-                    // are being served from the same server (our Node.js app).
-                    const response = await fetch('/api/links');
+            const addMessage = (msg) => {
+                const container = document.createElement('div');
+                if (msg.type === 'system') {
+                    container.className = 'message-container system';
+                    container.textContent = msg.content;
+                } else {
+                    const isMine = msg.user.id === localUser.id;
+                    container.className = `message-container ${isMine ? 'mine' : 'other'}`;
+                    container.dataset.messageId = msg.id;
+
+                    let contentHTML = '';
+                    if (msg.replyTo) contentHTML += `<div class="reply-context"><strong>${msg.replyTo.user}</strong><blockquote>${msg.replyTo.content}</blockquote></div>`;
+                    if (msg.type === 'file') {
+                        const filename = msg.content.split('/').pop().toLowerCase();
+                        if (filename.match(/\.(jpeg|jpg|gif|png|svg)$/)) contentHTML += `<div class="media-container"><img src="${msg.content}"></div>`;
+                        else if (filename.match(/\.(mp4|webm|ogg)$/)) contentHTML += `<div class="media-container"><video src="${msg.content}" controls></video></div>`;
+                        else if (filename.match(/\.(mp3|wav|ogg)$/)) contentHTML += `<div class="media-container"><audio src="${msg.content}" controls></audio></div>`;
+                        else contentHTML += `<div class="file-link"><a href="${msg.content}" target="_blank">Download: ${decodeURIComponent(filename.split('-').slice(1).join('-'))}</a></div>`;
+                    } else contentHTML += `<p>${msg.content}</p>`;
                     
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const links = await response.json();
-
-                    // Clear the "Loading..." message
-                    linksContainer.innerHTML = '';
-
-                    if (links.length === 0) {
-                        linksContainer.innerHTML = '<p class="loading-message">No links available at the moment.</p>';
-                        return;
-                    }
-
-                    // Create a card for each link and add it to the page.
-                    links.forEach(link => {
-                        const card = createLinkCard(link);
-                        linksContainer.appendChild(card);
-                    });
-
-                } catch (error) {
-                    console.error("Could not fetch links:", error);
-                    linksContainer.innerHTML = '<p class="loading-message">Failed to load links. Please try again later.</p>';
+                    const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    container.innerHTML = `
+                        <img src="${msg.user.avatarUrl}" class="avatar-img" alt="${msg.user.name}'s avatar">
+                        <div class="message-wrapper ${isMine ? 'mine' : 'other'}">
+                            <div class="message">
+                                ${contentHTML}
+                                <button class="reply-btn" title="Reply"><i class="fa-solid fa-reply"></i></button>
+                            </div>
+                            <div class="message-meta">${isMine ? 'You' : msg.user.name} at ${time}</div>
+                        </div>`;
                 }
-            }
+                DOMElements.chatWindow.appendChild(container);
+                scrollToBottom();
+            };
+            const scrollToBottom = () => DOMElements.chatWindow.scrollTop = DOMElements.chatWindow.scrollHeight;
 
-            // This function creates the HTML element for a single card.
-            function createLinkCard(link) {
-                const cardElement = document.createElement('div');
-                cardElement.className = 'link-card';
+            socket.on('join-success', ({user, history}) => {
+                localUser = user;
+                DOMElements.welcomeScreen.style.display = 'none';
+                DOMElements.chatContainer.style.display = 'flex';
+                history.forEach(addMessage);
+            });
+            socket.on('join-error', ({ message }) => {
+                DOMElements.joinErrorMsg.textContent = message;
+                DOMElements.joinBtn.disabled = false;
+            });
+            socket.on('system-message', (content) => addMessage({ type: 'system', content }));
+            socket.on('chat message', addMessage);
+            socket.on('update-users', ({ users }) => {
+                const userNames = users.map(u => u.name).join(', ');
+                DOMElements.userList.innerHTML = `Online (${users.length}): <span title="Users online: ${userNames}">${userNames}</span>`;
+            });
+            socket.on('typing-status', ({ user, isTyping }) => {
+                if (isTyping) currentlyTyping[user.id] = user; else delete currentlyTyping[user.id];
+                const typers = Object.values(currentlyTyping);
+                if (typers.length === 0) DOMElements.typingIndicator.textContent = '';
+                else if (typers.length === 1) DOMElements.typingIndicator.textContent = `${typers[0].name} is typing...`;
+                else DOMElements.typingIndicator.textContent = `${typers.length} users are typing...`;
+            });
 
-                // Using template literals to build the card's inner HTML
-                cardElement.innerHTML = `
-                    <div class="card-header">
-                        <img src="${link.imageUrl}" alt="${link.name} Profile Pic" class="profile-pic">
-                        <div class="card-title">
-                            <h2>${link.name}</h2>
-                            <span class="type-badge">${link.type}</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <p>${link.description}</p>
-                    </div>
-                    <div class="card-footer">
-                        <a href="${link.linkUrl}" target="_blank" rel="noopener noreferrer" class="join-button">Join ${link.type}</a>
-                    </div>
-                `;
-                return cardElement;
-            }
+            function validateJoinForm() { DOMElements.joinBtn.disabled = !(DOMElements.usernameInput.value.trim() && selectedAvatarFile); }
+            DOMElements.usernameInput.addEventListener('input', validateJoinForm);
+            DOMElements.avatarInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    selectedAvatarFile = file;
+                    const reader = new FileReader();
+                    reader.onload = (event) => DOMElements.avatarPreview.src = event.target.result;
+                    reader.readAsDataURL(file);
+                }
+                validateJoinForm();
+            });
 
-            // Initial call to load the data when the page loads.
-            fetchAndDisplayLinks();
+            DOMElements.joinForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                DOMElements.joinBtn.disabled = true;
+                DOMElements.joinErrorMsg.textContent = 'Uploading...';
+                
+                const formData = new FormData();
+                formData.append('avatar', selectedAvatarFile);
+                try {
+                    const res = await fetch('/upload-avatar', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (!data.filePath) throw new Error('Avatar upload failed.');
+                    socket.emit('join', { username: DOMElements.usernameInput.value, avatarUrl: data.filePath });
+                } catch (err) {
+                    DOMElements.joinErrorMsg.textContent = 'Error uploading avatar. Please try again.';
+                    DOMElements.joinBtn.disabled = false;
+                }
+            });
+            
+            DOMElements.chatForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (!DOMElements.userInput.value.trim()) return;
+                socket.emit('chat message', { type: 'text', content: DOMElements.userInput.value, replyTo: replyToMessage });
+                DOMElements.userInput.value = '';
+                cancelReply();
+                clearTimeout(typingTimeout); socket.emit('stop-typing');
+            });
+            
+            DOMElements.leaveChatBtn.addEventListener('click', () => { socket.disconnect(); location.reload(); });
+
+            DOMElements.fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const formData = new FormData(); formData.append('file', file);
+                fetch('/upload', { method: 'POST', body: formData })
+                    .then(res => res.json()).then(data => {
+                        if (data.filePath) socket.emit('chat message', { type: 'file', content: data.filePath, replyTo: replyToMessage });
+                        else alert('File upload failed.');
+                        cancelReply();
+                    }).catch(err => alert('Upload error.'));
+                DOMElements.fileInput.value = '';
+            });
+
+            DOMElements.chatWindow.addEventListener('click', (e) => {
+                const replyButton = e.target.closest('.reply-btn');
+                if (replyButton) {
+                    const msgContainer = replyButton.closest('.message-container');
+                    const user = msgContainer.querySelector('.message-meta').textContent.split(' at ')[0];
+                    const content = msgContainer.querySelector('.message p, .media-container, .file-link').textContent.trim().substring(0, 40) + '...';
+                    replyToMessage = { id: parseInt(msgContainer.dataset.messageId), user, content };
+                    DOMElements.replyPreview.style.display = 'block';
+                    document.getElementById('reply-user').textContent = user;
+                    document.getElementById('reply-text').textContent = content;
+                    DOMElements.userInput.focus();
+                }
+            });
+            
+            const cancelReply = () => { replyToMessage = null; DOMElements.replyPreview.style.display = 'none'; }
+            DOMElements.cancelReplyBtn.addEventListener('click', cancelReply);
+
+            DOMElements.userInput.addEventListener('input', () => {
+                clearTimeout(typingTimeout); socket.emit('typing');
+                typingTimeout = setTimeout(() => socket.emit('stop-typing'), 1500);
+            });
         });
     </script>
 </body>
