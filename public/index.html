@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Links Directory</title>
+    
+    <!-- Google Fonts for a nicer look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- CSS is now embedded directly in the HTML file -->
+    <style>
+        :root {
+            --primary-color: #075E54;
+            --secondary-color: #25D366;
+            --background-color: #f0f2f5;
+            --card-bg-color: #ffffff;
+            --text-color: #333;
+            --light-text-color: #666;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            text-align: center;
+            padding: 2rem 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header h1 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        #links-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .loading-message {
+            font-size: 1.2rem;
+            color: var(--light-text-color);
+            text-align: center;
+            grid-column: 1 / -1; /* Make it span all columns */
+        }
+
+        .link-card {
+            background-color: var(--card-bg-color);
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .link-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .profile-pic {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 1rem;
+            border: 2px solid var(--primary-color);
+            flex-shrink: 0;
+        }
+
+        .card-title h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .card-title .type-badge {
+            font-size: 0.75rem;
+            background-color: var(--background-color);
+            padding: 0.2rem 0.5rem;
+            border-radius: 10px;
+            color: var(--light-text-color);
+            font-weight: 400;
+        }
+
+        .card-body {
+            padding: 1rem;
+            flex-grow: 1; /* Makes the body take up available space */
+        }
+
+        .card-body p {
+            font-size: 0.9rem;
+            color: var(--light-text-color);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .card-footer {
+            padding: 1rem;
+            margin-top: auto; /* Pushes the footer to the bottom */
+            background-color: #fafafa;
+        }
+
+        .join-button {
+            display: block;
+            width: 100%;
+            padding: 0.8rem;
+            background-color: var(--secondary-color);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .join-button:hover {
+            background-color: #128C7E;
+        }
+
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            color: var(--light-text-color);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>WhatsApp Channel & Group Directory</h1>
+        <p>Discover and join the best communities on WhatsApp.</p>
+    </header>
+
+    <main id="links-container">
+        <!-- Links will be dynamically loaded here by JavaScript -->
+        <p class="loading-message">Loading links...</p>
+    </main>
+
+    <footer>
+        <p>© 2024 Your Website Name. All rights reserved.</p>
+    </footer>
+
+    <!-- JavaScript is now embedded directly in the HTML file -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const linksContainer = document.getElementById('links-container');
+
+            // This function fetches the data from our back-end API.
+            async function fetchAndDisplayLinks() {
+                try {
+                    // The '/api/links' path works because this HTML file and the API
+                    // are being served from the same server (our Node.js app).
+                    const response = await fetch('/api/links');
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const links = await response.json();
+
+                    // Clear the "Loading..." message
+                    linksContainer.innerHTML = '';
+
+                    if (links.length === 0) {
+                        linksContainer.innerHTML = '<p class="loading-message">No links available at the moment.</p>';
+                        return;
+                    }
+
+                    // Create a card for each link and add it to the page.
+                    links.forEach(link => {
+                        const card = createLinkCard(link);
+                        linksContainer.appendChild(card);
+                    });
+
+                } catch (error) {
+                    console.error("Could not fetch links:", error);
+                    linksContainer.innerHTML = '<p class="loading-message">Failed to load links. Please try again later.</p>';
+                }
+            }
+
+            // This function creates the HTML element for a single card.
+            function createLinkCard(link) {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'link-card';
+
+                // Using template literals to build the card's inner HTML
+                cardElement.innerHTML = `
+                    <div class="card-header">
+                        <img src="${link.imageUrl}" alt="${link.name} Profile Pic" class="profile-pic">
+                        <div class="card-title">
+                            <h2>${link.name}</h2>
+                            <span class="type-badge">${link.type}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p>${link.description}</p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="${link.linkUrl}" target="_blank" rel="noopener noreferrer" class="join-button">Join ${link.type}</a>
+                    </div>
+                `;
+                return cardElement;
+            }
+
+            // Initial call to load the data when the page loads.
+            fetchAndDisplayLinks();
+        });
+    </script>
+</body>
+</html>
