@@ -1,65 +1,102 @@
-// server.js
-
 const express = require('express');
-const cors = require('cors');
+const http = require('http');
 const path = require('path');
+const { Server } = require("socket.io");
+const multer = require('multer');
+const fs = require('fs');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-// This is the port Render will use. It's important to use process.env.PORT.
-const PORT = process.env.PORT || 3000;
+// --- State Management ---
+let users = {};
+let messageHistory = [];
 
-// --- Middleware ---
-// Enable CORS for all routes, allowing our front-end to make API calls.
-app.use(cors());
-// Serve static files (HTML, CSS, JS) from the 'public' directory.
-app.use(express.static(path.join(__dirname, 'public')));
+// --- File & Avatar Upload Setup (Multer) ---
+const uploadDir = 'public/uploads';
+const avatarDir = path.join(uploadDir, 'avatars');
+if (!fs.existsSync(avatarDir)) {
+    fs.mkdirSync(avatarDir, { recursive: true });
+}
 
-
-// --- API Data ---
-// In a real app, this would come from a database. For now, we'll hardcode it.
-const linksData = [
-    {
-        id: 1,
-        name: 'Tech Updates Channel',
-        description: 'Get the latest news in technology, startups, and AI. Daily updates!',
-        linkUrl: 'https://whatsapp.com/channel/your-tech-channel-link',
-        imageUrl: 'https://i.pravatar.cc/150?img=1', // Placeholder image
-        type: 'Channel'
-    },
-    {
-        id: 2,
-        name: 'Gamers United Group',
-        description: 'A friendly community for gamers to discuss new releases, tips, and tricks.',
-        linkUrl: 'https://chat.whatsapp.com/your-gamers-group-link',
-        imageUrl: 'https://i.pravatar.cc/150?img=5', // Placeholder image
-        type: 'Group'
-    },
-    {
-        id: 3,
-        name: 'Learn to Code Channel',
-        description: 'Daily coding challenges, resources, and tutorials for web developers.',
-        linkUrl: 'https://whatsapp.com/channel/your-coding-channel-link',
-        imageUrl: 'https://i.pravatar.cc/150?img=3', // Placeholder image
-        type: 'Channel'
-    },
-    {
-        id: 4,
-        name: 'Local Hiking Club',
-        description: 'Join us to plan and participate in local hiking and trekking adventures.',
-        linkUrl: 'https://chat.whatsapp.com/your-hiking-group-link',
-        imageUrl: 'https://i.pravatar.cc/150?img=11', // Placeholder image
-        type: 'Group'
+const fileStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+        const safeFilename = file.originalname.replace(/[^a-zA-Z0-9-._]/g, '');
+        cb(null, Date.now() + '-' + safeFilename);
     }
-];
-
-// --- API Route ---
-// This endpoint will be called by our front-end JavaScript.
-app.get('/api/links', (req, res) => {
-    res.json(linksData);
+});
+const avatarStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, avatarDir),
+    filename: (req, file, cb) => {
+        const safeFilename = file.originalname.replace(/[^a-zA-Z0-9-._]/g, '');
+        cb(null, `avatar-${Date.now()}-${safeFilename}`);
+    }
 });
 
-// --- Start the Server ---
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+const uploadFile = multer({ storage: fileStorage });
+const uploadAvatar = multer({ storage: avatarStorage });
+
+// --- Middleware & Routes ---
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+app.post('/upload', uploadFile.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+    res.json({ filePath: `/uploads/${req.file.filename}` });
 });
+
+app.post('/upload-avatar', uploadAvatar.single('avatar'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No avatar uploaded.' });
+    res.json({ filePath: `/uploads/avatars/${req.file.filename}` });
+});
+
+// --- Socket.IO Connection Logic ---
+io.on('connection', (socket) => {
+    console.log(`A user connected: ${socket.id}`);
+
+    socket.on('join', (data) => {
+        const { username, avatarUrl } = data;
+        const cleanUsername = username.trim();
+
+        if (!cleanUsername || cleanUsername.length > 15) return socket.emit('join-error', { message: 'Username must be 1-15 characters.' });
+        if (Object.values(users).some(u => u.name.toLowerCase() === cleanUsername.toLowerCase())) return socket.emit('join-error', { message: 'Username is taken.' });
+
+        users[socket.id] = { id: socket.id, name: cleanUsername, avatarUrl };
+        socket.emit('join-success', { user: users[socket.id], history: messageHistory });
+        io.emit('update-users', { users: Object.values(users) });
+        socket.broadcast.emit('system-message', `${cleanUsername} has joined.`);
+    });
+
+    socket.on('chat message', (msg) => {
+        if (!users[socket.id]) return;
+        const messageData = { id: Date.now(), type: msg.type, content: msg.content, user: users[socket.id], replyTo: msg.replyTo, timestamp: new Date() };
+        messageHistory.push(messageData);
+        if (messageHistory.length > 200) messageHistory.shift();
+        io.emit('chat message', messageData);
+    });
+    
+    socket.on('typing', () => {
+        if (!users[socket.id]) return;
+        socket.broadcast.emit('typing-status', { user: users[socket.id], isTyping: true });
+    });
+    socket.on('stop-typing', () => {
+        if (!users[socket.id]) return;
+        socket.broadcast.emit('typing-status', { user: users[socket.id], isTyping: false });
+    });
+
+    socket.on('disconnect', () => {
+        const user = users[socket.id];
+        if (user) {
+            console.log(`${user.name} disconnected`);
+            delete users[socket.id];
+            io.emit('system-message', `${user.name} has left.`);
+            io.emit('update-users', { users: Object.values(users) });
+            socket.broadcast.emit('typing-status', { user: { id: socket.id }, isTyping: false });
+        }
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
